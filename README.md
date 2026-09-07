@@ -32,17 +32,27 @@ PIC16F18877 project that monitors soil moisture, temperature and light, and auto
 
 ## Files
 
-config.h — oscillator/config settings
-main.c — main loop, ties everything together
-adc.c — ADC setup + conversion (interrupt-driven)
-pwm.c — PWM setup and duty cycle presets
-motor.c — pump/fan on/off
-extint.c — external interrupt setup
-isr.c — interrupt handler
-lcd.c — LCD driver (4-bit mode)
-dspTask.c — writes sensor values to the LCD
-uart.c — UART setup and transmit functions
-lpm.c — low power mode switch + logic
+. config.h — oscillator/config settings
+
+. main.c — main loop, ties everything together
+
+. adc.c — ADC setup + conversion (interrupt-driven)
+
+. pwm.c — PWM setup and duty cycle presets
+
+. motor.c — pump/fan on/off
+
+. extint.c — external interrupt setup
+
+. isr.c — interrupt handler
+
+. lcd.c — LCD driver (4-bit mode)
+
+. dspTask.c — writes sensor values to the LCD
+
+. uart.c — UART setup and transmit functions
+
+. lpm.c — low power mode switch + logic
 
 
 ## How the main loop works
