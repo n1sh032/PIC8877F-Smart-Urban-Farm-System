@@ -1,6 +1,10 @@
 #include <xc.h>
 #include "config.h"
 
+#define ADC_TEMP_RE2 0x22
+#define ADC_MOISTURE_RB5 0x0D
+#define ADC_LIGHT_RD2 0x1A
+
 void initADC(void);
 void initEXTINT(void);
 void initPWM(void);
@@ -33,9 +37,9 @@ void pwm100(void);
 unsigned char lpm_CheckSwitch(void);
 void lpm_Enter(void);
 
-extern unsigned char displayMode;
-extern unsigned int adc_RawResult;
-extern unsigned char adc_ConvDoneFlag;
+extern volatile unsigned char displayMode;
+extern volatile unsigned int adc_RawResult;
+extern volatile unsigned char adc_ConvDoneFlag;
 
 void initSysPins(void);
 
@@ -48,6 +52,11 @@ void main(void)
     unsigned char lastDisplayMode = 255;
     unsigned int lastValue = 65535;
     unsigned int currentValue;
+    unsigned char standby = 0;
+    unsigned char haveMoisture = 0;
+    unsigned char pumpRunning = 0;
+    unsigned char warnedDry = 0;
+    unsigned char warnedHot = 0;
 
     initSysPins();
     initADC();
@@ -57,16 +66,25 @@ void main(void)
     initSysUart();
     initLPM();
 
-    adc_StartConversion(0b00100010);
+    pumpOff();
+    fanOff();
+    adc_StartConversion(ADC_TEMP_RE2);
 
     while(1)
     {
         if(lpm_CheckSwitch() == 1)
         {
-            lpm_Enter();
+            if (!standby)
+            {
+                lpm_Enter();
+                standby = 1;
+                pumpRunning = 0;
+                lastDisplayMode = 255;
+            }
         }
         else
         {
+            standby = 0;
             PORTAbits.RA0 = 0;
             if(adc_ConvDoneFlag == 1)
             {
@@ -79,16 +97,17 @@ void main(void)
                     eusartWriteNumber(temp);
                     eusartWriteString("\r\n");
                     sensorTurn = 1;
-                    adc_StartConversion(0b00001101);
+                    adc_StartConversion(ADC_MOISTURE_RB5);
                 }
                 else if(sensorTurn == 1)
                 {
                     moisture = adc_ToMoisture(adc_RawResult);
+                    haveMoisture = 1;
                     eusartWriteString("MOISTURE:");
                     eusartWriteNumber(moisture);
                     eusartWriteString("\r\n");
                     sensorTurn = 2;
-                    adc_StartConversion(0b00011010);
+                    adc_StartConversion(ADC_LIGHT_RD2);
                 }
                 else
                 {
@@ -97,36 +116,52 @@ void main(void)
                     eusartWriteNumber(light);
                     eusartWriteString("\r\n");
                     sensorTurn = 0;
-                    adc_StartConversion(0b00100010);
+                    adc_StartConversion(ADC_TEMP_RE2);
                 }
             }
 
             if(temp < 35)
             {
                 fanOff();
+                warnedHot = 0;
             }
             else
             {
                 fanOn();
-                eusartWriteString("WARNING: Temp high, fan ON\r\n");
+                if (!warnedHot)
+                    eusartWriteString("WARNING: Temp high, fan ON\r\n");
+                warnedHot = 1;
             }
 
-            if(moisture < 30)
+            if (haveMoisture && moisture >= 70)
             {
-                
-                pumpOn();
-                pwm100();
-                eusartWriteString("WARNING: Soil dry, pump ON\r\n");
+                pumpRunning = 0;
             }
-            else if(moisture < 70)
+            else if (haveMoisture && moisture <= 65)
             {
-                pumpOn();
-                pwm25();
+                pumpRunning = 1;
             }
-            else if(moisture > 70)
+
+            if (pumpRunning)
+            {
+                if (moisture < 30)
+                    pwm100();
+                else
+                    pwm25();
+                pumpOn();
+            }
+            else
             {
                 pumpOff();
             }
+            if (haveMoisture && moisture < 30)
+            {
+                if (!warnedDry)
+                    eusartWriteString("WARNING: Soil dry, pump ON\r\n");
+                warnedDry = 1;
+            }
+            else
+                warnedDry = 0;
 
             if(light < 40) {
                 PORTAbits.RA1 = 1;

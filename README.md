@@ -16,9 +16,9 @@ PIC16F18877 project that monitors soil moisture, temperature and light, and auto
 
 | Signal | Pin |
 |---|---|
-| Temperature sensor | RE2 |
-| Soil moisture sensor | RB5 |
-| LDR (light sensor) | RD2 |
+| Temperature sensor | RE2 (ADPCH 0x22) |
+| Soil moisture sensor | RB5 (ADPCH 0x0D) |
+| LDR (light sensor) | RD2 (ADPCH 0x1A) |
 | Push button (cycle LCD) | RB0, ext. interrupt |
 | Toggle switch (LPM) | RB2 |
 | LCD data | RD4–RD7 |
@@ -57,24 +57,25 @@ PIC16F18877 project that monitors soil moisture, temperature and light, and auto
 
 ## How the main loop works
 
-1. Check if the LPM switch is on. If yes, stop the pump/fan, blank the display to "Low Power Mode", and skip everything else.
+1. When RB2 is high, enter software standby and display "Low Power Mode" once. The pump and fan stop and the ADC scan pauses after its pending conversion. When RB2 goes low, resume the scan and normal display.
 2. If not in LPM: check if the current ADC conversion finished. If it has, convert the reading, send it over UART, and start the next sensor's conversion.
 3. Run the fan/pump/LED logic based on the latest readings.
 4. Update the LCD only if the mode or value actually changed.
 
-Nothing in the loop blocks — the ADC runs in the background and interrupts when done, so the rest of the loop keeps running the whole time.
+ADC conversion completes via interrupt. LCD writes and UART transmissions are still synchronous. Temperature and dry-soil warnings are sent once per threshold crossing. The pump turns off at 70% or above and restarts at 65% or below. It runs at full PWM below 30% and at 25% PWM otherwise.
 
 ## Build
 
-MPLAB X + XC8, target PIC16F18877, programmed via PICkit-4.
+MPLAB X + XC8, target PIC16F18877. The source requires the board's local `config.h` with oscillator settings and configuration bits. This file and MPLAB project metadata are absent from the repository. Pin numbers depend on the package. See the [Microchip data sheet](https://www.microchip.com/content/dam/mchp/documents/MCU08/ProductDocuments/DataSheets/PIC16LF1885777_Data_Sheet_40001825F.pdf) for the package pinout and ADC channel table.
 
 ## Viewing UART output
 
-Connect the CH340 module on RC6/RC7, 9600 baud, 8N1. Any serial terminal works (PuTTY, MPLAB Data Visualizer, or the included `serial_terminal.html`, a simple browser-based terminal — needs Chrome or Edge).
+Connect RC6 (UART TX) to the USB serial adapter's RX and share ground. Use a serial terminal such as PuTTY or MPLAB Data Visualizer at 9600 baud, 8N1.
 
 ## Not done yet / known limitations
 
 - LPM is a software standby, not real hardware sleep — the CPU keeps running, it just stops updating the display and actuators
 - UART only sends data out right now, doesn't receive commands
 - IOC hasn't been added as its own feature yet
-- No hysteresis on thresholds, so a reading sitting right at a limit could cause flickering on/off
+- The fan and light thresholds do not have hysteresis
+- The firmware changes have not been checked on hardware

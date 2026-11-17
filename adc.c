@@ -1,8 +1,8 @@
 #include <xc.h>
 #include "config.h"
 
-unsigned int adc_RawResult;
-unsigned char adc_ConvDoneFlag = 0;
+volatile unsigned int adc_RawResult;
+volatile unsigned char adc_ConvDoneFlag = 0;
 
 void initADC(void)
 {

@@ -1,10 +1,10 @@
 #include <xc.h>
 #include "config.h"
 
-unsigned char displayMode = 0;
+volatile unsigned char displayMode = 0;
 
-extern unsigned int adc_RawResult;
-extern unsigned char adc_ConvDoneFlag;
+extern volatile unsigned int adc_RawResult;
+extern volatile unsigned char adc_ConvDoneFlag;
 
 void __interrupt() ISR(void)
 {
